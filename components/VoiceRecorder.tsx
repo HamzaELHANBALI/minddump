@@ -56,12 +56,18 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timerRef = useRef<number | null>(null);
   const transcriptRef = useRef<string>('');
+  const isRecordingRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Check for browser support
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
+      return;
+    }
+
+    // Only create recognition once, not on every isRecording change
+    if (recognitionRef.current) {
       return;
     }
 
@@ -100,6 +106,7 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
         return;
       }
       if (event.error === 'not-allowed') {
+        isRecordingRef.current = false;
         setIsRecording(false);
         if (timerRef.current) {
           clearInterval(timerRef.current);
@@ -110,9 +117,11 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
       }
       if (event.error === 'aborted') {
         // User stopped, this is normal
+        isRecordingRef.current = false;
         return;
       }
       if (event.error === 'network') {
+        isRecordingRef.current = false;
         setIsRecording(false);
         if (timerRef.current) {
           clearInterval(timerRef.current);
@@ -127,14 +136,14 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
     };
 
     recognition.onend = () => {
-      console.log('Speech recognition ended, isRecording:', isRecording);
+      console.log('Speech recognition ended, isRecording:', isRecordingRef.current);
       // On iOS Safari, recognition stops after 60 seconds or when no speech
       // Restart if still recording
-      if (isRecording) {
+      if (isRecordingRef.current) {
         try {
           // Small delay before restarting
           setTimeout(() => {
-            if (isRecording && recognitionRef.current) {
+            if (isRecordingRef.current && recognitionRef.current) {
               recognitionRef.current.start();
             }
           }, 100);
@@ -153,12 +162,14 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
         } catch (e) {
           // Ignore errors on cleanup
         }
+        recognitionRef.current = null;
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
-  }, [isRecording]);
+  }, []); // Empty dependency array - only run once on mount
 
   const startRecording = async () => {
     // Request microphone permission first
@@ -180,6 +191,7 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
       transcriptRef.current = '';
       setTimeElapsed(0);
       setIsRecording(true);
+      isRecordingRef.current = true;
       onStart();
 
       // Start recognition
@@ -194,6 +206,7 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
       }, 1000);
     } catch (e: any) {
       console.error('Failed to start recording:', e);
+      isRecordingRef.current = false;
       setIsRecording(false);
       if (e.message?.includes('already started')) {
         // Already started, that's okay
@@ -205,6 +218,7 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
 
   const stopRecording = () => {
     if (recognitionRef.current && isRecording) {
+      isRecordingRef.current = false;
       recognitionRef.current.stop();
       setIsRecording(false);
       
