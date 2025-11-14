@@ -1,0 +1,7 @@
+Place your icon files here:
+
+- icon-192.png (192x192 pixels)
+- icon-512.png (512x512 pixels)
+
+See UPDATE_ICON.md for instructions on creating these icons.
+
