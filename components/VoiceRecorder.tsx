@@ -238,9 +238,12 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
         <div className="text-center">
           <button
             onClick={startRecording}
-            className="w-48 h-48 md:w-56 md:h-56 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30 flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300"
+            className="w-48 h-48 md:w-56 md:h-56 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30 shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300 relative"
           >
-            <span className="text-6xl md:text-7xl leading-none flex items-center justify-center" style={{ lineHeight: '1', transform: 'translateY(-2px)' }}>
+            <span 
+              className="absolute inset-0 flex items-center justify-center text-6xl md:text-7xl"
+              style={{ lineHeight: '1' }}
+            >
               🎙️
             </span>
           </button>
