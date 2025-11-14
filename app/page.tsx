@@ -88,7 +88,7 @@ export default function Home() {
       <div className="min-h-screen pb-safe">
         {currentView === 'landing' && (
           <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 text-center font-jetbrains">
               MindDump
             </h1>
             <p className="text-white/90 text-lg mb-12 text-center max-w-md">

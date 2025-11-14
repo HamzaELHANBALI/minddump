@@ -10,6 +10,7 @@ interface SpeechRecognition extends EventTarget {
   start(): void;
   stop(): void;
   abort(): void;
+  onstart: (() => void) | null;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
@@ -237,9 +238,11 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
         <div className="text-center">
           <button
             onClick={startRecording}
-            className="w-48 h-48 md:w-56 md:h-56 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30 flex items-center justify-center text-6xl md:text-7xl shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300"
+            className="w-48 h-48 md:w-56 md:h-56 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30 flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300"
           >
-            🎙️
+            <span className="text-6xl md:text-7xl leading-none flex items-center justify-center" style={{ lineHeight: '1', transform: 'translateY(-2px)' }}>
+              🎙️
+            </span>
           </button>
           <h2 className="text-2xl md:text-3xl font-semibold text-white mt-8 mb-4">
             Ready to clear your mind?

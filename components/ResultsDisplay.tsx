@@ -49,7 +49,7 @@ export default function ResultsDisplay({ session, onSave, onNewDump }: ResultsDi
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 font-jetbrains">
           Your Organized Thoughts
         </h1>
         <p className="text-white/80">{formatDate(session.timestamp)}</p>
