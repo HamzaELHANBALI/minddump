@@ -53,14 +53,14 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
   const [transcript, setTranscript] = useState('');
   const [timeElapsed, setTimeElapsed] = useState(0);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const transcriptRef = useRef<string>('');
 
   useEffect(() => {
     // Check for browser support
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
-      alert('Your browser does not support speech recognition. Please use Chrome or Safari on iOS.');
       return;
     }
 
@@ -74,38 +74,71 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
       let finalTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
+        const result = event.results[i];
+        const transcript = result[0].transcript;
+        if (result.isFinal) {
           finalTranscript += transcript + ' ';
         } else {
           interimTranscript += transcript;
         }
       }
 
-      setTranscript((prev) => prev + finalTranscript);
+      // Accumulate final transcripts
+      if (finalTranscript) {
+        transcriptRef.current += finalTranscript;
+        setTranscript(transcriptRef.current + interimTranscript);
+      } else if (interimTranscript) {
+        setTranscript(transcriptRef.current + interimTranscript);
+      }
     };
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'no-speech') {
-        // User stopped speaking, continue listening
+        // Continue listening, don't stop
         return;
       }
-      if (event.error === 'aborted' || event.error === 'network') {
-        stopRecording();
-        alert('Recording stopped. Please try again.');
+      if (event.error === 'not-allowed') {
+        setIsRecording(false);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        alert('Microphone permission denied. Please allow microphone access in Safari settings.');
+        return;
+      }
+      if (event.error === 'aborted') {
+        // User stopped, this is normal
+        return;
+      }
+      if (event.error === 'network') {
+        setIsRecording(false);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        alert('Network error. Please check your connection and try again.');
       }
     };
 
+    recognition.onstart = () => {
+      console.log('Speech recognition started');
+    };
+
     recognition.onend = () => {
-      // On iOS Safari, recognition stops after 60 seconds
+      console.log('Speech recognition ended, isRecording:', isRecording);
+      // On iOS Safari, recognition stops after 60 seconds or when no speech
       // Restart if still recording
       if (isRecording) {
         try {
-          recognition.start();
+          // Small delay before restarting
+          setTimeout(() => {
+            if (isRecording && recognitionRef.current) {
+              recognitionRef.current.start();
+            }
+          }, 100);
         } catch (e) {
-          // Already started or error
-          console.log('Recognition restart:', e);
+          console.log('Recognition restart error:', e);
         }
       }
     };
@@ -114,7 +147,11 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
 
     return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Ignore errors on cleanup
+        }
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -122,23 +159,46 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
     };
   }, [isRecording]);
 
-  const startRecording = () => {
-    if (!recognitionRef.current) return;
+  const startRecording = async () => {
+    // Request microphone permission first
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (error) {
+      alert('Microphone permission is required. Please allow access in Safari settings.');
+      return;
+    }
+
+    if (!recognitionRef.current) {
+      alert('Speech recognition not available. Please use Safari on iOS.');
+      return;
+    }
 
     try {
-      recognitionRef.current.start();
-      setIsRecording(true);
+      // Reset state
       setTranscript('');
+      transcriptRef.current = '';
       setTimeElapsed(0);
+      setIsRecording(true);
       onStart();
 
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setTimeElapsed((prev) => prev + 1);
+      // Start recognition
+      recognitionRef.current.start();
+
+      // Start timer - use window.setInterval for better compatibility
+      timerRef.current = window.setInterval(() => {
+        setTimeElapsed((prev) => {
+          const next = prev + 1;
+          return next;
+        });
       }, 1000);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to start recording:', e);
-      alert('Failed to start recording. Please check microphone permissions.');
+      setIsRecording(false);
+      if (e.message?.includes('already started')) {
+        // Already started, that's okay
+        return;
+      }
+      alert('Failed to start recording. Please try again.');
     }
   };
 
@@ -154,12 +214,14 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
 
       // Wait a moment for final results, then complete
       setTimeout(() => {
-        if (transcript.trim()) {
-          onComplete(transcript.trim());
+        const finalTranscript = transcriptRef.current || transcript;
+        if (finalTranscript.trim()) {
+          onComplete(finalTranscript.trim());
         } else {
-          alert('No speech detected. Please try again.');
+          setIsRecording(false);
+          alert('No speech detected. Please speak clearly and try again.');
         }
-      }, 500);
+      }, 1000);
     }
   };
 
