@@ -53,6 +53,7 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [timeElapsed, setTimeElapsed] = useState(0);
+  const [language, setLanguage] = useState<'en-US' | 'fr-FR'>('fr-FR'); // Default to French
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timerRef = useRef<number | null>(null);
   const transcriptRef = useRef<string>('');
@@ -66,15 +67,20 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
       return;
     }
 
-    // Only create recognition once, not on every isRecording change
+    // Clean up existing recognition if language changed
     if (recognitionRef.current) {
-      return;
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Ignore errors
+      }
+      recognitionRef.current = null;
     }
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = language;
 
     recognition.onresult = (event) => {
       let interimTranscript = '';
@@ -112,7 +118,9 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
           clearInterval(timerRef.current);
           timerRef.current = null;
         }
-        alert('Microphone permission denied. Please allow microphone access in Safari settings.');
+        alert(language === 'fr-FR'
+          ? 'Permission microphone refusée. Veuillez autoriser l\'accès au microphone dans les paramètres Safari.'
+          : 'Microphone permission denied. Please allow microphone access in Safari settings.');
         return;
       }
       if (event.error === 'aborted') {
@@ -127,7 +135,9 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
           clearInterval(timerRef.current);
           timerRef.current = null;
         }
-        alert('Network error. Please check your connection and try again.');
+        alert(language === 'fr-FR'
+          ? 'Erreur réseau. Veuillez vérifier votre connexion et réessayer.'
+          : 'Network error. Please check your connection and try again.');
       }
     };
 
@@ -169,19 +179,23 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
         timerRef.current = null;
       }
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, [language]); // Recreate when language changes
 
   const startRecording = async () => {
     // Request microphone permission first
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (error) {
-      alert('Microphone permission is required. Please allow access in Safari settings.');
+      alert(language === 'fr-FR' 
+        ? 'Permission microphone requise. Veuillez autoriser l\'accès dans les paramètres Safari.'
+        : 'Microphone permission is required. Please allow access in Safari settings.');
       return;
     }
 
     if (!recognitionRef.current) {
-      alert('Speech recognition not available. Please use Safari on iOS.');
+      alert(language === 'fr-FR'
+        ? 'Reconnaissance vocale non disponible. Veuillez utiliser Safari sur iOS.'
+        : 'Speech recognition not available. Please use Safari on iOS.');
       return;
     }
 
@@ -212,7 +226,9 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
         // Already started, that's okay
         return;
       }
-      alert('Failed to start recording. Please try again.');
+      alert(language === 'fr-FR'
+        ? 'Échec du démarrage de l\'enregistrement. Veuillez réessayer.'
+        : 'Failed to start recording. Please try again.');
     }
   };
 
@@ -234,7 +250,9 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
           onComplete(finalTranscript.trim());
         } else {
           setIsRecording(false);
-          alert('No speech detected. Please speak clearly and try again.');
+          alert(language === 'fr-FR'
+            ? 'Aucune parole détectée. Veuillez parler clairement et réessayer.'
+            : 'No speech detected. Please speak clearly and try again.');
         }
       }, 1000);
     }
@@ -250,6 +268,36 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
     <div className="flex flex-col items-center justify-center min-h-screen px-4">
       {!isRecording ? (
         <div className="text-center">
+          {/* Language selector */}
+          <div className="mb-6 flex items-center justify-center gap-3">
+              <button
+                onClick={() => {
+                  if (!isRecording) setLanguage('fr-FR');
+                }}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                  language === 'fr-FR'
+                    ? 'bg-white text-purple-600'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+                disabled={isRecording}
+              >
+                🇫🇷 Français
+              </button>
+              <button
+                onClick={() => {
+                  if (!isRecording) setLanguage('en-US');
+                }}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                  language === 'en-US'
+                    ? 'bg-white text-purple-600'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+                disabled={isRecording}
+              >
+                🇺🇸 English
+              </button>
+            </div>
+
           <button
             onClick={startRecording}
             className="w-48 h-48 md:w-56 md:h-56 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30 shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300 relative"
@@ -262,16 +310,18 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
             </span>
           </button>
           <h2 className="text-2xl md:text-3xl font-semibold text-white mt-8 mb-4">
-            Ready to clear your mind?
+            {language === 'fr-FR' ? 'Prêt à vider votre esprit ?' : 'Ready to clear your mind?'}
           </h2>
           <p className="text-white/80 text-lg mb-8 max-w-md">
-            Press the mic to start your brain dump. Speak naturally for 2-5 minutes.
+            {language === 'fr-FR' 
+              ? 'Appuyez sur le micro pour commencer. Parlez naturellement pendant 2-5 minutes.'
+              : 'Press the mic to start your brain dump. Speak naturally for 2-5 minutes.'}
           </p>
         </div>
       ) : (
         <div className="text-center w-full max-w-md">
           <h2 className="text-2xl md:text-3xl font-semibold text-white mb-8">
-            🎤 Listening...
+            🎤 {language === 'fr-FR' ? 'Écoute...' : 'Listening...'}
           </h2>
 
           {/* Waveform animation */}
@@ -294,14 +344,16 @@ export default function VoiceRecorder({ onComplete, onStart }: VoiceRecorderProp
           </div>
 
           <p className="text-white/70 mb-8 text-sm">
-            Speak naturally about what's on your mind...
+            {language === 'fr-FR' 
+              ? 'Parlez naturellement de ce qui vous préoccupe...'
+              : 'Speak naturally about what\'s on your mind...'}
           </p>
 
           <button
             onClick={stopRecording}
             className="px-12 py-4 bg-red-500 hover:bg-red-600 text-white rounded-full font-semibold text-lg shadow-lg transition-all active:scale-95"
           >
-            Stop Recording
+            {language === 'fr-FR' ? 'Arrêter l\'enregistrement' : 'Stop Recording'}
           </button>
 
           {transcript && (
